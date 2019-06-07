@@ -1,0 +1,6 @@
+{
+    "board": "arduino:avr:nano",
+    "configuration": "cpu=atmega328old",
+    "port": "/dev/cu.usbserial-A9MLPNF3",
+    "sketch": "main.ino"
+}
