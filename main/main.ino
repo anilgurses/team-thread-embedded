@@ -44,13 +44,15 @@ File file;
 unsigned int pckCnt = 0;
 
 /*States
-  0: Started
+  0: FSW Start
   1: Calibration
-  2: Calibrated and waiting for launch
-  3: Launch
-  4: Deploy from the rocket
-  5: Released from container
-  6: Landed and waiting for pickup
+  2: Started
+  3: Calibrated and waiting for launch
+  4: Launch
+  5: Deploy from the rocket
+  6: Released from container
+  7: Landed and waiting for pickup
+  
 */
 
 unsigned int state = 0;
@@ -71,6 +73,7 @@ void setup() {
   pinMode(8 , INPUT_PULLUP);
   pinMode(6 , OUTPUT);
   pinMode(7 , OUTPUT);
+  //pinMode(1,INPUT_PULLUP); // RPM SENSOR
   digitalWrite(6, HIGH);
   digitalWrite(7, HIGH);
 
@@ -94,6 +97,7 @@ void setup() {
   if(file)
   {
     xBee.println("Detect power failure.");
+    isStart = 1;
   }
   else
   {
@@ -163,146 +167,165 @@ void loop()
     // start komutu aldıktan sonra kalibrasyon yapılamaz.
 
     //isStart = 1 iken veri göndermeye başlar.
-    if (isStart == 0) 
+    if (isStart == 1) 
     {    
       xBee.println(F("xBee is sending the data."));
-    }
-  
-    delay(1000);
-    return;
 
-    float temp(NAN), hum(NAN), pres(NAN);
-  
-    BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
-    BME280::PresUnit presUnit(BME280::PresUnit_Pa);
-    EnvironmentCalculations::AltitudeUnit envAltUnit  =  EnvironmentCalculations::AltitudeUnit_Meters;
-    EnvironmentCalculations::TempUnit     envTempUnit =  EnvironmentCalculations::TempUnit_Celsius;
-  
-  
-  
-    bme.read(pres, temp, hum, tempUnit, presUnit);
-    float newPres = pres / 100;
-    float altitude = EnvironmentCalculations::Altitude(newPres, envAltUnit, referencePressure, outdoorTemp, envTempUnit);
-  
-    //<TEAM ID>,<MISSION TIME>,<PACKET COUNT>,<ALTITUDE>, <PRESSURE>, <TEMP>,<VOLTAGE>,<GPS TIME>,<GPS LATITUDE>,<GPS LONGITUDE>
-    //,<GPS ALTITUDE>,<GPS SATS>,<PITCH>,<ROLL>,<BLADE SPIN RATE>,<SOFTWARE STATE>,<BONUS DIRECTION>
-    int val = analogRead(A6);
-    float voltage = val * (6.5 / 1023.0);
-    serialEvent();
-  
-  
-    if (Re_buf[0] == 0x5A && Re_buf[1] == 0x5A) {
-      YPR[0] = (Re_buf[8] << 8 | Re_buf[9]) / 100;
-      YPR[1] = (Re_buf[6] << 8 | Re_buf[7]) / 100; //PITCH
-      YPR[2] = (Re_buf[4] << 8 | Re_buf[5]) / 100; //ROLL
-    }
-  
-    int rmn = pckCnt % 100;
-  
-    smartDelay(10);
-  
-    if (rmn == 0) {
-      xBee.print(F("["));
-      xBee.print(F("2505"));
-      xBee.print(F(","));
-      xBee.print(future.hour(), DEC);
-      xBee.print(F(":"));
-      xBee.print(future.minute(), DEC);
-      xBee.print(F(":"));
-      xBee.print(future.second(), DEC);
-      xBee.print(F(","));
-      xBee.print(pckCnt / 100);
-      xBee.print(F(","));
-      xBee.print(altitude);
-      xBee.print(F(","));
-      xBee.print(pres);
-      xBee.print(F(","));
-      xBee.print(temp);
-      xBee.print(F(","));
-      xBee.print(voltage);
-      xBee.print(F(","));
-      xBee.print(gps.time.hour());
-      xBee.print(F(":"));
-      xBee.print(gps.time.minute());
-      xBee.print(F(":"));
-      xBee.print(gps.time.second());
-      xBee.print(F(","));
-      xBee.print(gps.location.lat());
-      xBee.print(F(","));
-      xBee.print(gps.location.lng());
-      xBee.print(F(","));
-      xBee.print(gps.altitude.meters());
-      xBee.print(F(","));
-      xBee.print(gps.satellites.value());
-      xBee.print(F(","));
-      xBee.print(YPR[1], DEC);//PITCH
-      xBee.print(F(","));
-      xBee.print(YPR[2], DEC);//Roll
-      xBee.print(F(","));
-      xBee.print(rps);
-      xBee.print(F(","));
-      xBee.print(state);
-      xBee.print(F(","));
-      xBee.print(YPR[0], DEC);//Nadir
-      xBee.print(F(","));
-      xBee.print(F("]"));
-      xBee.println();
-  
-      myLog = SD.open(F("log.txt"), FILE_WRITE);
-  
-      if (myLog) {
-        myLog.print(F("2505"));
-        myLog.print(F(","));
-        myLog.print(future.hour(), DEC);
-        myLog.print(F(":"));
-        myLog.print(future.minute(), DEC);
-        myLog.print(F(":"));
-        myLog.print(future.second(), DEC);
-        myLog.print(F(","));
-        myLog.print(pckCnt);
-        myLog.print(F(","));
-        myLog.print(altitude);
-        myLog.print(F(","));
-        myLog.print(newPres);
-        myLog.print(F(","));
-        myLog.print(temp);
-        myLog.print(F(","));
-        myLog.print(voltage);
-        myLog.print(F(","));
-        myLog.print(gps.time.hour());
-        myLog.print(F(":"));
-        myLog.print(gps.time.minute());
-        myLog.print(F(":"));
-        myLog.print(gps.time.second());
-        myLog.print(F(","));
-        myLog.print(gps.location.lat());
-        myLog.print(F(","));
-        myLog.print(gps.location.lng());
-        myLog.print(F(","));
-        myLog.print(gps.altitude.meters());
-        myLog.print(F(","));
-        myLog.print(gps.satellites.value());
-        myLog.print(F(","));
-        myLog.print(YPR[1], DEC);//PITCH
-        myLog.print(F(","));
-        myLog.print(YPR[2], DEC);//Roll
-        myLog.print(F(","));
-        myLog.print(rps);
-        myLog.print(F(","));
-        myLog.print(state);
-        myLog.print(F(","));
-        myLog.print(YPR[0], DEC);//Nadir
-        myLog.print(F(";"));
-        myLog.println();
-  
-      } else {
-        // if the file didn't open, print an error:
-        xBee.println(F("error opening log.txt"));
+
+      // 1 saniye bekleme sağlanıyor.
+      start_time=millis();
+      end_time=start_time+1000;
+      while(millis()<end_time)
+      {
+        if (Re_buf[0] == 0x5A && Re_buf[1] == 0x5A) {
+        YPR[0] = (Re_buf[8] << 8 | Re_buf[9]) / 100;
+        YPR[1] = (Re_buf[6] << 8 | Re_buf[7]) / 100; //PITCH
+        YPR[2] = (Re_buf[4] << 8 | Re_buf[5]) / 100; //ROLL
+        }
+        if(digitalRead(8))
+        {
+         steps=steps+1;
+         while(digitalRead(8));
+        }
+        //sensör verilerini bastır.
       }
+      temp=steps-steps_old;
+      steps_old=steps;
+      rps=(temp/10)*60; // dakika biçiminde 10 delikli encoder
+
+      float temp(NAN), hum(NAN), pres(NAN);
   
-      myLog.close();
+      BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
+      BME280::PresUnit presUnit(BME280::PresUnit_Pa);
+      EnvironmentCalculations::AltitudeUnit envAltUnit  =  EnvironmentCalculations::AltitudeUnit_Meters;
+      EnvironmentCalculations::TempUnit     envTempUnit =  EnvironmentCalculations::TempUnit_Celsius;
+    
+    
+    
+      bme.read(pres, temp, hum, tempUnit, presUnit);
+      float newPres = pres / 100;
+      float altitude = EnvironmentCalculations::Altitude(newPres, envAltUnit, referencePressure, outdoorTemp, envTempUnit);
+    
+      //<TEAM ID>,<MISSION TIME>,<PACKET COUNT>,<ALTITUDE>, <PRESSURE>, <TEMP>,<VOLTAGE>,<GPS TIME>,<GPS LATITUDE>,<GPS LONGITUDE>
+      //,<GPS ALTITUDE>,<GPS SATS>,<PITCH>,<ROLL>,<BLADE SPIN RATE>,<SOFTWARE STATE>,<BONUS DIRECTION>
+      int val = analogRead(A6);
+      float voltage = val * (6.5 / 1023.0);
+      serialEvent();
+    
+    
+//      if (Re_buf[0] == 0x5A && Re_buf[1] == 0x5A) {
+//        YPR[0] = (Re_buf[8] << 8 | Re_buf[9]) / 100;
+//        YPR[1] = (Re_buf[6] << 8 | Re_buf[7]) / 100; //PITCH
+//        YPR[2] = (Re_buf[4] << 8 | Re_buf[5]) / 100; //ROLL
+//      }
+    
+      int rmn = pckCnt % 100;
+    
+      smartDelay(10);
+    
+      if (1) {
+        xBee.print(F("["));
+        xBee.print(F("2505"));
+        xBee.print(F(","));
+        xBee.print(future.hour(), DEC);
+        xBee.print(F(":"));
+        xBee.print(future.minute(), DEC);
+        xBee.print(F(":"));
+        xBee.print(future.second(), DEC);
+        xBee.print(F(","));
+        xBee.print(pckCnt / 100);
+        xBee.print(F(","));
+        xBee.print(altitude);
+        xBee.print(F(","));
+        xBee.print(pres);
+        xBee.print(F(","));
+        xBee.print(temp);
+        xBee.print(F(","));
+        xBee.print(voltage);
+        xBee.print(F(","));
+        xBee.print(gps.time.hour());
+        xBee.print(F(":"));
+        xBee.print(gps.time.minute());
+        xBee.print(F(":"));
+        xBee.print(gps.time.second());
+        xBee.print(F(","));
+        xBee.print(gps.location.lat());
+        xBee.print(F(","));
+        xBee.print(gps.location.lng());
+        xBee.print(F(","));
+        xBee.print(gps.altitude.meters());
+        xBee.print(F(","));
+        xBee.print(gps.satellites.value());
+        xBee.print(F(","));
+        xBee.print(YPR[1], DEC);//PITCH
+        xBee.print(F(","));
+        xBee.print(YPR[2], DEC);//Roll
+        xBee.print(F(","));
+        xBee.print((rps));
+        xBee.print(F(","));
+        xBee.print(state);
+        xBee.print(F(","));
+        xBee.print(YPR[0], DEC);//Nadir
+        xBee.print(F(","));
+        xBee.print(F("]"));
+        xBee.println();
+    
+        myLog = SD.open(F("log.txt"), FILE_WRITE);
+    
+        if (myLog) {
+          myLog.print(F("2505"));
+          myLog.print(F(","));
+          myLog.print(future.hour(), DEC);
+          myLog.print(F(":"));
+          myLog.print(future.minute(), DEC);
+          myLog.print(F(":"));
+          myLog.print(future.second(), DEC);
+          myLog.print(F(","));
+          myLog.print(pckCnt);
+          myLog.print(F(","));
+          myLog.print(altitude);
+          myLog.print(F(","));
+          myLog.print(newPres);
+          myLog.print(F(","));
+          myLog.print(temp);
+          myLog.print(F(","));
+          myLog.print(voltage);
+          myLog.print(F(","));
+          myLog.print(gps.time.hour());
+          myLog.print(F(":"));
+          myLog.print(gps.time.minute());
+          myLog.print(F(":"));
+          myLog.print(gps.time.second());
+          myLog.print(F(","));
+          myLog.print(gps.location.lat());
+          myLog.print(F(","));
+          myLog.print(gps.location.lng());
+          myLog.print(F(","));
+          myLog.print(gps.altitude.meters());
+          myLog.print(F(","));
+          myLog.print(gps.satellites.value());
+          myLog.print(F(","));
+          myLog.print(YPR[1], DEC);//PITCH
+          myLog.print(F(","));
+          myLog.print(YPR[2], DEC);//Roll
+          myLog.print(F(","));
+          myLog.print(rps);
+          myLog.print(F(","));
+          myLog.print(state);
+          myLog.print(F(","));
+          myLog.print(YPR[0], DEC);//Nadir
+          myLog.print(F(";"));
+          myLog.println();
+    
+        } else {
+          // if the file didn't open, print an error:
+          xBee.println(F("error opening log.txt"));
+        }
+    
+        myLog.close();
+      }
+      pckCnt++;
     }
-    pckCnt++;
 
 } 
 
